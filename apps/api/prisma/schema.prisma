@@ -1,0 +1,152 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  admin
+  staff
+  seller
+  customer
+}
+
+enum ProductStatus {
+  draft
+  active
+  archived
+}
+
+enum ChannelKind {
+  shopee
+  tiktok_shop
+  meta
+}
+
+enum OrderStatus {
+  pending
+  paid
+  packed
+  shipped
+  cancelled
+}
+
+enum SyncStatus {
+  queued
+  running
+  success
+  failed
+}
+
+model Account {
+  id        String    @id @default(cuid())
+  name      String
+  users     User[]
+  products  Product[]
+  channels  Channel[]
+  orders    Order[]
+  syncJobs  SyncJob[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model User {
+  id        String   @id @default(cuid())
+  accountId String
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  email     String   @unique
+  passwordHash String
+  role      Role
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id        String        @id @default(cuid())
+  accountId String
+  account   Account       @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  sku       String
+  name      String
+  slug      String
+  price     Int
+  inventory Int
+  status    ProductStatus @default(draft)
+  listings  Listing[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([accountId, sku])
+  @@unique([accountId, slug])
+  @@index([accountId, status])
+}
+
+model Channel {
+  id         String      @id @default(cuid())
+  accountId  String
+  account    Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  kind       ChannelKind
+  name       String
+  connected  Boolean     @default(false)
+  listings   Listing[]
+  orders     Order[]
+  syncJobs   SyncJob[]
+  lastSyncAt DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@index([accountId, kind])
+}
+
+model Listing {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  channelId  String
+  channel    Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId String?
+  status     String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, channelId])
+}
+
+model Order {
+  id           String      @id @default(cuid())
+  accountId    String
+  account      Account     @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  channelId    String
+  channel      Channel     @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  externalId   String
+  customerName String
+  status       OrderStatus
+  total        Int
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([channelId, externalId])
+  @@index([accountId, status])
+}
+
+model SyncJob {
+  id        String     @id @default(cuid())
+  accountId String
+  account   Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   Channel    @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  operation String
+  status    SyncStatus
+  errorCode String?
+  message   String?
+  retryable Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@index([accountId, status])
+  @@index([channelId, createdAt])
+}

@@ -1,0 +1,11 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import "@mantine/core/styles.css";
+import "./styles.css";
+import { MantineProvider } from "@mantine/core";
+import { ecommerceTheme } from "@ecommerce/ui";
+import React from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Navigate, NavLink, Route, Routes } from "react-router-dom";
+import { App } from "./shell";
+ReactDOM.createRoot(document.getElementById("root")).render(_jsx(React.StrictMode, { children: _jsx(MantineProvider, { theme: ecommerceTheme, children: _jsx(BrowserRouter, { children: _jsxs(Routes, { children: [_jsx(Route, { path: "/*", element: _jsx(App, {}) }), _jsx(Route, { path: "/", element: _jsx(Navigate, { to: "/admin", replace: true }) })] }) }) }) }));
+export { NavLink, Route, Routes };

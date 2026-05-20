@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "types": ["vite/client"],
+    "composite": true,
+    "baseUrl": ".",
+    "paths": {
+      "@ecommerce/shared": ["../../packages/shared/src"],
+      "@ecommerce/ui": ["../../packages/ui/src"]
+    }
+  },
+  "include": ["src", "vite.config.ts", "../../packages/shared/src", "../../packages/ui/src"]
+}

@@ -1,0 +1,22 @@
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  background: #f7f9fc;
+}
+
+body {
+  margin: 0;
+  background: #f7f9fc;
+}
+
+.portal-surface {
+  background:
+    linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(37, 99, 235, 0) 240px),
+    #f7f9fc;
+}
+
+a.active {
+  font-weight: 700;
+}

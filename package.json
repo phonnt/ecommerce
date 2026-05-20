@@ -1,0 +1,21 @@
+{
+  "name": "ecommerce",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "engines": {
+    "node": "20.19 || >=22.12 <23 || >=24"
+  },
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "prettier": "^3.5.3",
+    "turbo": "^2.5.3",
+    "typescript": "^5.8.3"
+  }
+}
