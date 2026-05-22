@@ -5,6 +5,13 @@ dist
 out
 coverage
 .vercel
+*.tsbuildinfo
+apps/app/src/**/*.js
+apps/app/src/**/*.d.ts
+apps/app/vite.config.js
+apps/app/vite.config.d.ts
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
 apps/api/src/generated/
 .env
 .env.*
