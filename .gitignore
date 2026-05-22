@@ -2,7 +2,9 @@ node_modules
 .turbo
 dist
 .next
+out
 coverage
+.vercel
 apps/api/src/generated/
 .env
 .env.*

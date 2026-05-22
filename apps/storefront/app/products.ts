@@ -29,9 +29,7 @@ const fallbackProducts: Product[] = [
 
 export async function getProducts(): Promise<Product[]> {
   try {
-    const response = await fetch(`${apiUrl}/public/products`, {
-      next: { revalidate: 60 }
-    });
+    const response = await fetch(`${apiUrl}/public/products`);
 
     if (!response.ok) {
       return fallbackProducts;
@@ -45,9 +43,7 @@ export async function getProducts(): Promise<Product[]> {
 
 export async function getProduct(slug: string): Promise<Product | null> {
   try {
-    const response = await fetch(`${apiUrl}/public/products/${slug}`, {
-      next: { revalidate: 60 }
-    });
+    const response = await fetch(`${apiUrl}/public/products/${slug}`);
 
     if (response.status === 404) {
       return null;

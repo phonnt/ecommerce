@@ -1,0 +1,11 @@
+{
+  "buildCommand": "pnpm --filter @ecommerce/app build",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "outputDirectory": "apps/app/dist",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
