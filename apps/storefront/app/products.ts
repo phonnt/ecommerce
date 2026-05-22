@@ -12,7 +12,21 @@ const fallbackProducts: Product[] = [
     price: 490000,
     inventory: 84,
     status: "active",
-    updatedAt: "2026-05-18T09:00:00.000Z"
+    updatedAt: "2026-05-18T09:00:00.000Z",
+    variants: [
+      {
+        id: "variant_prod_1_default",
+        accountId: "demo-account",
+        productId: "prod_1",
+        sku: "LINEN-TEE-WHT",
+        name: "Default",
+        price: 490000,
+        onHand: 84,
+        status: "active",
+        isDefault: true,
+        updatedAt: "2026-05-18T09:00:00.000Z"
+      }
+    ]
   },
   {
     id: "prod_2",
@@ -23,7 +37,21 @@ const fallbackProducts: Product[] = [
     price: 320000,
     inventory: 32,
     status: "active",
-    updatedAt: "2026-05-18T09:30:00.000Z"
+    updatedAt: "2026-05-18T09:30:00.000Z",
+    variants: [
+      {
+        id: "variant_prod_2_default",
+        accountId: "demo-account",
+        productId: "prod_2",
+        sku: "BAG-CANVAS-01",
+        name: "Default",
+        price: 320000,
+        onHand: 32,
+        status: "active",
+        isDefault: true,
+        updatedAt: "2026-05-18T09:30:00.000Z"
+      }
+    ]
   }
 ];
 

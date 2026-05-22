@@ -1,4 +1,4 @@
-import type { ChannelKind, Order, Product, SyncJob } from "@ecommerce/shared";
+import type { ChannelKind, Order, Product, ProductVariant, SyncJob } from "@ecommerce/shared";
 
 export type ConnectorAuthInput = {
   accountId: string;
@@ -23,7 +23,7 @@ export interface MarketplaceConnector {
   connect(input: ConnectorAuthInput): Promise<ConnectorResult>;
   pushListing(product: Product): Promise<ConnectorResult>;
   pullOrders(accountId: string, channelId: string): Promise<Order[]>;
-  updateInventory(product: Product): Promise<ConnectorResult>;
+  updateInventory(variant: ProductVariant): Promise<ConnectorResult>;
   normalizeError(error: unknown): ConnectorResult["normalizedError"];
   reportSyncStatus(job: SyncJob): Promise<ConnectorResult>;
 }
@@ -64,12 +64,12 @@ export class MockMarketplaceConnector implements MarketplaceConnector {
     ];
   }
 
-  async updateInventory(product: Product): Promise<ConnectorResult> {
+  async updateInventory(variant: ProductVariant): Promise<ConnectorResult> {
     return {
       ok: true,
-      externalId: `${this.kind}-inventory-${product.sku}`,
+      externalId: `${this.kind}-inventory-${variant.sku}`,
       status: "success",
-      message: `Inventory set to ${product.inventory}`
+      message: `Inventory set to ${variant.onHand}`
     };
   }
 

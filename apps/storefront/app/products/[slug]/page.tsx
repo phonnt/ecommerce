@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { formatPrice, getProduct, getProducts } from "../../products";
+import { getProduct, getProducts } from "../../products";
+import { VariantDetail } from "./variant-detail";
 
 type ProductPageProps = {
   params: Promise<{ slug: string }>;
@@ -49,24 +50,12 @@ export default async function ProductDetailPage({ params }: ProductPageProps) {
         </div>
       </div>
       <section className="detail-copy">
-        <p className="sku">{product.sku}</p>
         <h1>{product.name}</h1>
         <p>
           Product detail mock for SEO routes, canonical metadata, marketplace listings, and future
           checkout expansion.
         </p>
-        <strong>{formatPrice(product.price)}</strong>
-        <button type="button">Add to cart</button>
-        <dl>
-          <div>
-            <dt>Inventory</dt>
-            <dd>{product.inventory}</dd>
-          </div>
-          <div>
-            <dt>Status</dt>
-            <dd>{product.status}</dd>
-          </div>
-        </dl>
+        <VariantDetail status={product.status} variants={product.variants} />
       </section>
     </main>
   );

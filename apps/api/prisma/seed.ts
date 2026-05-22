@@ -82,7 +82,7 @@ await prisma.channel.upsert({
   }
 });
 
-await prisma.product.upsert({
+const linenTee = await prisma.product.upsert({
   where: {
     accountId_sku: {
       accountId,
@@ -107,7 +107,7 @@ await prisma.product.upsert({
   }
 });
 
-await prisma.product.upsert({
+const mug = await prisma.product.upsert({
   where: {
     accountId_sku: {
       accountId,
@@ -132,7 +132,7 @@ await prisma.product.upsert({
   }
 });
 
-await prisma.product.upsert({
+const tote = await prisma.product.upsert({
   where: {
     accountId_sku: {
       accountId,
@@ -156,6 +156,35 @@ await prisma.product.upsert({
     status: "active"
   }
 });
+
+for (const product of [linenTee, mug, tote]) {
+  await prisma.productVariant.upsert({
+    where: {
+      accountId_sku: {
+        accountId,
+        sku: product.sku
+      }
+    },
+    update: {
+      productId: product.id,
+      name: "Default",
+      price: product.price,
+      onHand: product.inventory,
+      status: product.status,
+      isDefault: true
+    },
+    create: {
+      accountId,
+      productId: product.id,
+      sku: product.sku,
+      name: "Default",
+      price: product.price,
+      onHand: product.inventory,
+      status: product.status,
+      isDefault: true
+    }
+  });
+}
 
 await prisma.order.upsert({
   where: {

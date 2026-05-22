@@ -4,11 +4,14 @@ import { createPrismaClient } from "../prisma/client.js";
 type PrismaClientLike = {
   $connect(): Promise<void>;
   $disconnect(): Promise<void>;
+  $transaction<T>(input: (transaction: PrismaClientLike) => Promise<T>): Promise<T>;
   account: any;
   channel: any;
+  inventoryLedgerEntry: any;
   listing: any;
   order: any;
   product: any;
+  productVariant: any;
   syncJob: any;
   user: any;
 };

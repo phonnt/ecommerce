@@ -23,14 +23,36 @@ import {
   IconAlertCircle,
   IconBuildingStore,
   IconChartBar,
+  IconListDetails,
   IconPackage,
+  IconPencil,
+  IconPlus,
   IconPlugConnected,
   IconRefresh,
   IconShoppingBag,
   IconUserCircle
 } from "@tabler/icons-react";
-import { apiGet, apiRequest, can, LoginRequestSchema, ProductCreateSchema } from "@ecommerce/shared";
-import type { AuthUser, Channel, LoginResponse, Order, Product, Role, SyncJob } from "@ecommerce/shared";
+import {
+  apiGet,
+  apiRequest,
+  can,
+  InventoryAdjustmentRequestSchema,
+  LoginRequestSchema,
+  ProductCreateSchema,
+  ProductVariantCreateSchema,
+  ProductVariantUpdateSchema
+} from "@ecommerce/shared";
+import type {
+  AuthUser,
+  Channel,
+  InventoryLedgerEntry,
+  LoginResponse,
+  Order,
+  Product,
+  ProductVariant,
+  Role,
+  SyncJob
+} from "@ecommerce/shared";
 import { useEffect, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
@@ -42,6 +64,16 @@ type ProductForm = {
   inventory: number;
   status: "draft" | "active" | "archived";
 };
+
+type VariantForm = {
+  name: string;
+  sku: string;
+  price: number;
+  onHand: number;
+  status: "draft" | "active" | "archived";
+};
+
+type VariantEditForm = Omit<VariantForm, "onHand">;
 
 type ApiState = {
   products: Product[];
@@ -243,8 +275,11 @@ function AdminDashboard({ role, token }: { role: Role; token: string }) {
   const firstProduct = state.products[0];
   const firstChannel = state.channels.find((channel) => channel.connected) ?? state.channels[0];
 
-  const runSync = async (operation: "push-listing" | "pull-orders" | "update-inventory") => {
-    if (!firstChannel || (operation !== "pull-orders" && !firstProduct)) {
+  const runSync = async (
+    operation: "push-listing" | "pull-orders" | "update-inventory",
+    target?: { productId: string; variantId?: string }
+  ) => {
+    if (!firstChannel || (operation === "push-listing" && !firstProduct)) {
       return;
     }
     await apiRequest<SyncJob>(apiUrl, `/sync-jobs/${operation}`, {
@@ -252,7 +287,8 @@ function AdminDashboard({ role, token }: { role: Role; token: string }) {
       token,
       body: JSON.stringify({
         channelId: firstChannel.id,
-        productId: firstProduct?.id
+        productId: target?.productId ?? firstProduct?.id,
+        ...(target?.variantId ? { variantId: target.variantId } : {})
       })
     });
     await refresh();
@@ -309,7 +345,14 @@ function AdminDashboard({ role, token }: { role: Role; token: string }) {
               w={140}
             />
           </Group>
-          <ProductTable products={visibleProducts} onSyncInventory={() => runSync("update-inventory")} />
+          <ProductTable
+            products={visibleProducts}
+            token={token}
+            onRefresh={refresh}
+            onSyncInventory={(productId, variantId) =>
+              runSync("update-inventory", { productId, variantId })
+            }
+          />
         </Card>
 
         <Card withBorder radius="md">
@@ -510,41 +553,509 @@ function ProductEditor({ onCreate, token }: { onCreate: () => void; token: strin
   );
 }
 
-function ProductTable({ onSyncInventory, products }: { onSyncInventory: () => void; products: Product[] }) {
+function ProductTable({
+  onRefresh,
+  onSyncInventory,
+  products,
+  token
+}: {
+  onRefresh: () => Promise<void>;
+  onSyncInventory: (productId: string, variantId: string) => Promise<void>;
+  products: Product[];
+  token: string;
+}) {
+  const [selectedProductId, setSelectedProductId] = useState<string | null>(products[0]?.id ?? null);
+  const selectedProduct = products.find((product) => product.id === selectedProductId);
+
+  useEffect(() => {
+    if (!selectedProduct && products[0]) {
+      setSelectedProductId(products[0].id);
+    }
+  }, [products, selectedProduct]);
+
   return (
-    <Table.ScrollContainer minWidth={640}>
-      <Table verticalSpacing="sm">
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th>Product</Table.Th>
-            <Table.Th>SKU</Table.Th>
-            <Table.Th>Inventory</Table.Th>
-            <Table.Th>Price</Table.Th>
-            <Table.Th>Status</Table.Th>
-            <Table.Th>Sync</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {products.map((product) => (
-            <Table.Tr key={product.id}>
-              <Table.Td>{product.name}</Table.Td>
-              <Table.Td>{product.sku}</Table.Td>
-              <Table.Td>{product.inventory}</Table.Td>
-              <Table.Td>{currency.format(product.price)}</Table.Td>
-              <Table.Td>
-                <Badge color={product.status === "active" ? "green" : "gray"}>{product.status}</Badge>
-              </Table.Td>
-              <Table.Td>
-                <ActionIcon aria-label={`Sync inventory for ${product.name}`} variant="light" onClick={onSyncInventory}>
-                  <IconRefresh size={16} />
-                </ActionIcon>
-              </Table.Td>
+    <Stack gap="md">
+      <Table.ScrollContainer minWidth={640}>
+        <Table verticalSpacing="sm">
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th>Product</Table.Th>
+              <Table.Th>SKU</Table.Th>
+              <Table.Th>Inventory</Table.Th>
+              <Table.Th>Price</Table.Th>
+              <Table.Th>Status</Table.Th>
+              <Table.Th>Variants</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Table.ScrollContainer>
+          </Table.Thead>
+          <Table.Tbody>
+            {products.map((product) => (
+              <Table.Tr key={product.id}>
+                <Table.Td>{product.name}</Table.Td>
+                <Table.Td>{product.sku}</Table.Td>
+                <Table.Td>{product.inventory}</Table.Td>
+                <Table.Td>{currency.format(product.price)}</Table.Td>
+                <Table.Td>
+                  <Badge color={product.status === "active" ? "green" : "gray"}>{product.status}</Badge>
+                </Table.Td>
+                <Table.Td>
+                  <Button
+                    aria-label={`Manage variants for ${product.name}`}
+                    leftSection={<IconListDetails size={16} />}
+                    onClick={() => setSelectedProductId(product.id)}
+                    size="compact-xs"
+                    variant={product.id === selectedProductId ? "filled" : "light"}
+                  >
+                    {product.variants.length}
+                  </Button>
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Table.ScrollContainer>
+      {!products.length ? <Text c="dimmed">No products match this filter.</Text> : null}
+      {selectedProduct ? (
+        <VariantManager
+          onRefresh={onRefresh}
+          onSyncInventory={onSyncInventory}
+          product={selectedProduct}
+          token={token}
+        />
+      ) : null}
+    </Stack>
   );
+}
+
+function VariantManager({
+  onRefresh,
+  onSyncInventory,
+  product,
+  token
+}: {
+  onRefresh: () => Promise<void>;
+  onSyncInventory: (productId: string, variantId: string) => Promise<void>;
+  product: Product;
+  token: string;
+}) {
+  const [ledgerVariantId, setLedgerVariantId] = useState(product.variants[0]?.id ?? null);
+  const ledgerVariant = product.variants.find((variant) => variant.id === ledgerVariantId) ?? null;
+
+  useEffect(() => {
+    if (!product.variants.some((variant) => variant.id === ledgerVariantId)) {
+      setLedgerVariantId(product.variants[0]?.id ?? null);
+    }
+  }, [ledgerVariantId, product.variants]);
+
+  return (
+    <Paper p="md" radius="md" withBorder>
+      <Stack gap="md">
+        <Group justify="space-between">
+          <Title order={3}>{product.name} variants</Title>
+          <Badge variant="light">{product.variants.length} variants</Badge>
+        </Group>
+        <Table.ScrollContainer minWidth={920}>
+          <Table verticalSpacing="sm">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Variant</Table.Th>
+                <Table.Th>SKU</Table.Th>
+                <Table.Th>Price</Table.Th>
+                <Table.Th>On hand</Table.Th>
+                <Table.Th>Status</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {product.variants.map((variant) => (
+                <VariantRow
+                  key={variant.id}
+                  onLedger={() => setLedgerVariantId(variant.id)}
+                  onRefresh={onRefresh}
+                  onSyncInventory={onSyncInventory}
+                  productId={product.id}
+                  token={token}
+                  variant={variant}
+                />
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+        {!product.variants.length ? <Text c="dimmed">No variants have been created.</Text> : null}
+        <VariantCreator onCreate={onRefresh} productId={product.id} token={token} />
+        <InventoryLedger productId={product.id} token={token} variant={ledgerVariant} />
+      </Stack>
+    </Paper>
+  );
+}
+
+function VariantRow({
+  onLedger,
+  onRefresh,
+  onSyncInventory,
+  productId,
+  token,
+  variant
+}: {
+  onLedger: () => void;
+  onRefresh: () => Promise<void>;
+  onSyncInventory: (productId: string, variantId: string) => Promise<void>;
+  productId: string;
+  token: string;
+  variant: ProductVariant;
+}) {
+  const [adjustError, setAdjustError] = useState<string | null>(null);
+  const [delta, setDelta] = useState(0);
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<VariantEditForm>(variantToEditForm(variant));
+  const [note, setNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setEditForm(variantToEditForm(variant));
+  }, [variant]);
+
+  const adjust = async () => {
+    const parsed = InventoryAdjustmentRequestSchema.safeParse({
+      delta,
+      ...(note.trim() ? { note: note.trim() } : {})
+    });
+    if (!parsed.success) {
+      setAdjustError("Enter an integer inventory delta.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiRequest<ProductVariant>(
+        apiUrl,
+        `/products/${productId}/variants/${variant.id}/inventory-adjustments`,
+        {
+          method: "POST",
+          token,
+          body: JSON.stringify(parsed.data)
+        }
+      );
+      setAdjustError(null);
+      setDelta(0);
+      setNote("");
+      await onRefresh();
+    } catch (error) {
+      setAdjustError(error instanceof Error ? error.message : "Inventory adjustment failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const save = async () => {
+    const parsed = ProductVariantUpdateSchema.safeParse(editForm);
+    if (!parsed.success) {
+      setEditError("Variant fields are invalid.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await apiRequest<ProductVariant>(apiUrl, `/products/${productId}/variants/${variant.id}`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify(parsed.data)
+      });
+      setEditError(null);
+      setEditing(false);
+      await onRefresh();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : "Variant update failed");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <Table.Tr>
+      <Table.Td>
+        {editing ? (
+          <TextInput
+            aria-label={`Name for ${variant.sku}`}
+            onChange={(event) => setEditForm((value) => ({ ...value, name: event.target.value }))}
+            value={editForm.name}
+          />
+        ) : (
+          <Group gap="xs">
+            <Text>{variant.name}</Text>
+            {variant.isDefault ? <Badge variant="light">Default</Badge> : null}
+          </Group>
+        )}
+      </Table.Td>
+      <Table.Td>
+        {editing ? (
+          <TextInput
+            aria-label={`SKU for ${variant.name}`}
+            onChange={(event) => setEditForm((value) => ({ ...value, sku: event.target.value }))}
+            value={editForm.sku}
+          />
+        ) : (
+          variant.sku
+        )}
+      </Table.Td>
+      <Table.Td>
+        {editing ? (
+          <NumberInput
+            aria-label={`Price for ${variant.name}`}
+            min={0}
+            onChange={(value) => setEditForm((form) => ({ ...form, price: toNumber(value) }))}
+            value={editForm.price}
+          />
+        ) : (
+          currency.format(variant.price)
+        )}
+      </Table.Td>
+      <Table.Td>
+        <Stack gap={6}>
+          <Text fw={600}>{variant.onHand}</Text>
+          <Group gap={6} wrap="nowrap">
+            <NumberInput
+              aria-label={`Inventory delta for ${variant.name}`}
+              allowDecimal={false}
+              onChange={(value) => setDelta(toNumber(value))}
+              size="xs"
+              value={delta}
+              w={88}
+            />
+            <TextInput
+              aria-label={`Inventory note for ${variant.name}`}
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="Note"
+              size="xs"
+              value={note}
+              w={132}
+            />
+            <Button disabled={!delta} loading={submitting} onClick={adjust} size="compact-xs" variant="light">
+              Adjust
+            </Button>
+          </Group>
+          {adjustError ? <Text c="red" size="xs">{adjustError}</Text> : null}
+        </Stack>
+      </Table.Td>
+      <Table.Td>
+        {editing ? (
+          <Select
+            aria-label={`Status for ${variant.name}`}
+            data={statusOptions}
+            onChange={(value) =>
+              setEditForm((form) => ({ ...form, status: (value ?? "draft") as VariantEditForm["status"] }))
+            }
+            value={editForm.status}
+          />
+        ) : (
+          <Badge color={variant.status === "active" ? "green" : "gray"}>{variant.status}</Badge>
+        )}
+        {editError ? <Text c="red" size="xs">{editError}</Text> : null}
+      </Table.Td>
+      <Table.Td>
+        <Group gap="xs" wrap="nowrap">
+          {editing ? (
+            <>
+              <Button loading={submitting} onClick={save} size="compact-xs">
+                Save
+              </Button>
+              <Button onClick={() => setEditing(false)} size="compact-xs" variant="subtle">
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <ActionIcon aria-label={`Edit ${variant.name}`} onClick={() => setEditing(true)} variant="light">
+              <IconPencil size={16} />
+            </ActionIcon>
+          )}
+          <ActionIcon aria-label={`Open ledger for ${variant.name}`} onClick={onLedger} variant="light">
+            <IconListDetails size={16} />
+          </ActionIcon>
+          <ActionIcon
+            aria-label={`Sync inventory for ${variant.name}`}
+            onClick={() => onSyncInventory(productId, variant.id)}
+            variant="light"
+          >
+            <IconRefresh size={16} />
+          </ActionIcon>
+        </Group>
+      </Table.Td>
+    </Table.Tr>
+  );
+}
+
+function VariantCreator({
+  onCreate,
+  productId,
+  token
+}: {
+  onCreate: () => Promise<void>;
+  productId: string;
+  token: string;
+}) {
+  const [error, setError] = useState<string | null>(null);
+  const {
+    control,
+    formState: { isSubmitting },
+    handleSubmit,
+    register,
+    reset
+  } = useForm<VariantForm>({
+    defaultValues: {
+      name: "",
+      sku: "",
+      price: 100000,
+      onHand: 0,
+      status: "draft"
+    }
+  });
+
+  const submit = handleSubmit(async (values) => {
+    const parsed = ProductVariantCreateSchema.safeParse(values);
+    if (!parsed.success) {
+      setError("Variant data is invalid.");
+      return;
+    }
+
+    try {
+      await apiRequest<ProductVariant>(apiUrl, `/products/${productId}/variants`, {
+        method: "POST",
+        token,
+        body: JSON.stringify(parsed.data)
+      });
+      setError(null);
+      reset();
+      await onCreate();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Variant create failed");
+    }
+  });
+
+  return (
+    <form onSubmit={submit}>
+      <Stack gap="xs">
+        <Group justify="space-between">
+          <Title order={4}>Create variant</Title>
+          <Button leftSection={<IconPlus size={16} />} loading={isSubmitting} size="compact-sm" type="submit">
+            Add
+          </Button>
+        </Group>
+        {error ? <Alert color="red">{error}</Alert> : null}
+        <SimpleGrid cols={{ base: 1, sm: 2 }}>
+          <TextInput label="Variant name" {...register("name", { required: true })} />
+          <TextInput label="Variant SKU" {...register("sku", { required: true })} />
+          <Controller
+            control={control}
+            name="price"
+            render={({ field }) => <NumberInput label="Price" min={0} {...field} />}
+          />
+          <Controller
+            control={control}
+            name="onHand"
+            render={({ field }) => <NumberInput label="Opening inventory" min={0} {...field} />}
+          />
+          <Controller
+            control={control}
+            name="status"
+            render={({ field }) => <Select data={statusOptions} label="Status" {...field} />}
+          />
+        </SimpleGrid>
+      </Stack>
+    </form>
+  );
+}
+
+function InventoryLedger({
+  productId,
+  token,
+  variant
+}: {
+  productId: string;
+  token: string;
+  variant: ProductVariant | null;
+}) {
+  const [entries, setEntries] = useState<InventoryLedgerEntry[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!variant) {
+      setEntries([]);
+      return;
+    }
+
+    setLoading(true);
+    apiGet<InventoryLedgerEntry[]>(
+      apiUrl,
+      `/products/${productId}/variants/${variant.id}/inventory-ledger`,
+      token
+    )
+      .then((nextEntries) => {
+        setEntries(nextEntries);
+        setError(null);
+      })
+      .catch((nextError) => {
+        setError(nextError instanceof Error ? nextError.message : "Failed to load inventory ledger");
+      })
+      .finally(() => setLoading(false));
+  }, [productId, token, variant]);
+
+  return (
+    <Stack gap="xs">
+      <Group justify="space-between">
+        <Title order={4}>Inventory ledger</Title>
+        {variant ? <Text size="sm">{variant.sku}</Text> : null}
+      </Group>
+      {loading ? <Loader aria-label="Loading inventory ledger" size="sm" /> : null}
+      {error ? <Alert color="red">{error}</Alert> : null}
+      {!loading && !error && !entries.length ? <Text c="dimmed">No ledger entries yet.</Text> : null}
+      {entries.length ? (
+        <Table.ScrollContainer minWidth={560}>
+          <Table verticalSpacing="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Change</Table.Th>
+                <Table.Th>Quantity</Table.Th>
+                <Table.Th>Source</Table.Th>
+                <Table.Th>Note</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {entries.map((entry) => (
+                <Table.Tr key={entry.id}>
+                  <Table.Td>{entry.delta > 0 ? `+${entry.delta}` : entry.delta}</Table.Td>
+                  <Table.Td>
+                    {entry.quantityBefore} to {entry.quantityAfter}
+                  </Table.Td>
+                  <Table.Td>{entry.type.replace("_", " ")}</Table.Td>
+                  <Table.Td>{entry.note ?? "-"}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Table.ScrollContainer>
+      ) : null}
+    </Stack>
+  );
+}
+
+const statusOptions = [
+  { value: "draft", label: "Draft" },
+  { value: "active", label: "Active" },
+  { value: "archived", label: "Archived" }
+];
+
+function variantToEditForm(variant: ProductVariant): VariantEditForm {
+  return {
+    name: variant.name,
+    sku: variant.sku,
+    price: variant.price,
+    status: variant.status
+  };
+}
+
+function toNumber(value: string | number) {
+  return typeof value === "number" ? value : Number(value) || 0;
 }
 
 function Metric({ label, value, tone = "blue" }: { label: string; value: string; tone?: string }) {

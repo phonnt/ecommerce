@@ -210,6 +210,31 @@ nav {
   margin: 0 0 12px;
 }
 
+.variant-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 22px 0 16px;
+}
+
+.variant-options button {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: #111827;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 750;
+  min-height: 42px;
+  padding: 10px 14px;
+}
+
+.variant-options button.active {
+  background: #111827;
+  border-color: #111827;
+  color: #ffffff;
+}
+
 dl {
   display: grid;
   gap: 12px;

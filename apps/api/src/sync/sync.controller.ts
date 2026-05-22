@@ -1,7 +1,10 @@
 import { Body, Controller, Get, Headers, Post, UseGuards } from "@nestjs/common";
-import { ApiHeader, ApiTags } from "@nestjs/swagger";
+import { ApiBody, ApiHeader, ApiTags } from "@nestjs/swagger";
+import { SyncInventoryRequestSchema } from "@ecommerce/shared";
+import type { SyncInventoryRequest } from "@ecommerce/shared";
 import { Roles } from "../auth/rbac.js";
 import { RolesGuard } from "../auth/roles.guard.js";
+import { SyncInventoryRequestDto } from "./sync.openapi.js";
 import { SyncService } from "./sync.service.js";
 
 @ApiTags("channels")
@@ -41,11 +44,12 @@ export class SyncController {
 
   @Post("sync-jobs/update-inventory")
   @Roles("owner", "admin", "staff", "seller")
+  @ApiBody({ type: SyncInventoryRequestDto })
   updateInventory(
     @Headers("x-account-id") accountId: string,
-    @Body("productId") productId: string,
-    @Body("channelId") channelId: string
+    @Body() body: SyncInventoryRequest
   ) {
-    return this.sync.updateInventory(accountId, productId, channelId);
+    const input = SyncInventoryRequestSchema.parse(body);
+    return this.sync.updateInventory(accountId, input);
   }
 }

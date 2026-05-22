@@ -2,8 +2,9 @@ import { Injectable, NotFoundException, OnModuleDestroy, OnModuleInit } from "@n
 import { Queue, Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { connectors } from "@ecommerce/connectors";
-import type { ChannelKind, SyncOperation } from "@ecommerce/shared";
+import type { ChannelKind, SyncInventoryRequest, SyncOperation } from "@ecommerce/shared";
 import { DatabaseService } from "../database/database.service.js";
+import { InventoryService } from "../products/inventory.service.js";
 import { ProductsService } from "../products/products.service.js";
 
 const queueName = "marketplace-sync";
@@ -34,6 +35,8 @@ type MarketplaceSyncData = {
   accountId: string;
   channelId: string;
   productId?: string;
+  variantId?: string;
+  inventory?: number;
   operation: SyncOperation;
 };
 
@@ -45,7 +48,8 @@ export class SyncService implements OnModuleInit, OnModuleDestroy {
 
   constructor(
     private readonly database: DatabaseService,
-    private readonly products: ProductsService
+    private readonly products: ProductsService,
+    private readonly inventory: InventoryService
   ) {}
 
   onModuleInit() {
@@ -109,8 +113,15 @@ export class SyncService implements OnModuleInit, OnModuleDestroy {
     return this.createAndEnqueueJob({ accountId, channelId, operation: "pull_orders" });
   }
 
-  async updateInventory(accountId: string, productId: string, channelId: string) {
-    return this.createAndEnqueueJob({ accountId, channelId, productId, operation: "update_inventory" });
+  async updateInventory(accountId: string, input: SyncInventoryRequest) {
+    return this.createAndEnqueueJob({
+      accountId,
+      channelId: input.channelId,
+      productId: input.productId,
+      variantId: input.variantId,
+      inventory: input.inventory,
+      operation: "update_inventory"
+    });
   }
 
   private async createAndEnqueueJob(input: Omit<MarketplaceSyncData, "syncJobId">) {
@@ -123,8 +134,11 @@ export class SyncService implements OnModuleInit, OnModuleDestroy {
       throw new NotFoundException("Channel not found");
     }
 
-    if ((input.operation === "push_listing" || input.operation === "update_inventory") && !input.productId) {
+    if (input.operation === "push_listing" && !input.productId) {
       throw new NotFoundException("Product not found");
+    }
+    if (input.operation === "update_inventory" && !input.productId && !input.variantId) {
+      throw new NotFoundException("Variant not found");
     }
 
     const syncJob = await prisma.syncJob.create({
@@ -242,12 +256,17 @@ export class SyncService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async processUpdateInventory(data: MarketplaceSyncData, channel: ChannelRecord) {
-    if (!data.productId) {
-      throw new NotFoundException("Product not found");
+    let variant = await this.products.findInventoryTarget(data.accountId, data.productId, data.variantId);
+    if (data.inventory !== undefined) {
+      variant = await this.inventory.syncVariantQuantity(
+        data.accountId,
+        variant.productId,
+        variant.id,
+        data.inventory,
+        { syncJobId: data.syncJobId }
+      );
     }
-
-    const product = await this.products.findOne(data.accountId, data.productId);
-    const result = await connectors[channel.kind].updateInventory(product);
+    const result = await connectors[channel.kind].updateInventory(variant);
     await this.completeJob(data.syncJobId, data.channelId, result.status, result.message ?? null);
   }
 
