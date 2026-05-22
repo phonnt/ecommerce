@@ -82,4 +82,7 @@ owner user, channels, products, orders, and an example sync job.
 ## Deployment Flow
 
 Railway owns the API, PostgreSQL, and Redis services. Vercel owns the Vite admin app and the Next.js
-storefront. Platform integrations can deploy after CI passes; custom domains are not part of V1.
+storefront. The root `railway.json` builds the API workspace dependency graph, applies Prisma
+migrations before start, and starts the Nest service. Railway `CORS_ORIGINS` allows the deployed
+admin origin to call the API while the storefront bakes public product data during its Vercel build.
+Platform integrations can deploy after CI passes; custom domains are not part of V1.

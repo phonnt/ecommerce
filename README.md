@@ -50,7 +50,7 @@ generating the schema locally.
 
 - `apps/app`: `VITE_API_URL`
 - `apps/storefront`: `NEXT_PUBLIC_API_URL`
-- `apps/api`: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, marketplace credentials
+- `apps/api`: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGINS`, marketplace credentials
 
 `ALLOW_DEV_TENANT_HEADER=true` re-enables the old `x-account-id` / `x-role` path for local debugging
 only. Leave it unset in production.
@@ -68,16 +68,20 @@ Vercel projects:
 
 Railway services:
 
-- `apps/api`: build `pnpm --filter @ecommerce/api build`
+- `apps/api`: root `railway.json` builds with `pnpm turbo build --filter=@ecommerce/api`
 - Start command: `pnpm --filter @ecommerce/api start:prod`
 - Migration command before start: `pnpm --filter @ecommerce/api db:migrate`
 - PostgreSQL: set `DATABASE_URL`
 - Redis: set `REDIS_URL` for BullMQ queue `marketplace-sync`
+- Browser origins: set `CORS_ORIGINS` to a comma-separated list of allowed admin origins
 
 Vercel environment:
 
 - Admin app: `VITE_API_URL=<Railway API URL>`
 - Storefront: `NEXT_PUBLIC_API_URL=<Railway API URL>`
+
+The frontend Vercel configs live in `apps/app/vercel.json` and `apps/storefront/vercel.json`. They
+build from the monorepo root and emit `apps/app/dist` and `apps/storefront/out` respectively.
 
 ## V1 Scope
 

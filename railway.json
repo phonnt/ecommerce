@@ -1,0 +1,11 @@
+{
+  "$schema": "https://railway.com/railway.schema.json",
+  "build": {
+    "builder": "RAILPACK",
+    "buildCommand": "pnpm turbo build --filter=@ecommerce/api"
+  },
+  "deploy": {
+    "preDeployCommand": ["pnpm --filter @ecommerce/api db:migrate"],
+    "startCommand": "pnpm --filter @ecommerce/api start:prod"
+  }
+}
