@@ -63,8 +63,8 @@ inline as a local-development fallback.
 
 Vercel projects:
 
-- `apps/app`: framework `Vite`, build `pnpm build`, output `dist`
-- `apps/storefront`: framework `Next.js`, build `pnpm build`, output `.next`
+- `apps/app`: framework `Vite`, build `pnpm --filter @ecommerce/app build`, output `apps/app/dist`
+- `apps/storefront`: framework `Next.js`, build `pnpm --filter @ecommerce/storefront build`, output `apps/storefront/out`
 
 Railway services:
 
@@ -82,6 +82,8 @@ Vercel environment:
 
 The frontend Vercel configs live in `apps/app/vercel.json` and `apps/storefront/vercel.json`. They
 build from the monorepo root and emit `apps/app/dist` and `apps/storefront/out` respectively.
+Xem [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) để có hướng dẫn đầy đủ về environment setup,
+deploy order, verification steps và troubleshooting.
 
 ## V1 Scope
 
