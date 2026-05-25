@@ -63,8 +63,8 @@ inline as a local-development fallback.
 
 Vercel projects:
 
-- `apps/app`: framework `Vite`, build `pnpm --filter @ecommerce/app build`, output `apps/app/dist`
-- `apps/storefront`: framework `Next.js`, build `pnpm --filter @ecommerce/storefront build`, output `apps/storefront/out`
+- `apps/app`: Vercel Root Directory `apps/app`, framework `Vite`, build `pnpm --filter @ecommerce/app build`, output `dist`
+- `apps/storefront`: Vercel Root Directory `apps/storefront`, framework `Next.js`, build `pnpm --filter @ecommerce/storefront build`, output `out`
 
 Railway services:
 
@@ -80,8 +80,9 @@ Vercel environment:
 - Admin app: `VITE_API_URL=<Railway API URL>`
 - Storefront: `NEXT_PUBLIC_API_URL=<Railway API URL>`
 
-The frontend Vercel configs live in `apps/app/vercel.json` and `apps/storefront/vercel.json`. They
-build from the monorepo root and emit `apps/app/dist` and `apps/storefront/out` respectively.
+The frontend Vercel configs live in `apps/app/vercel.json` and `apps/storefront/vercel.json`. Each
+Vercel project uses its app directory as the project root while the build commands still target the
+workspace package from the monorepo.
 Xem [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) để có hướng dẫn đầy đủ về environment setup,
 deploy order, verification steps và troubleshooting.
 
